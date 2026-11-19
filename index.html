@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0}</style>
+<title>Сменный график</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Onest:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: шапка с названием, вкладки, под ними рабочая область. Главный экран — недельная таблица сотрудников по двум сменам. */
+:root{
+  --bg:#f2f5f4; --surface:#ffffff; --surface2:#f7f9f8; --line:#dbe2df;
+  --fg:#17211f; --muted:#5b6a67; --accent:#0f5f59; --accent-fg:#ffffff;
+  --s1-bg:#dce9fb; --s1-fg:#17407f;
+  --s2-bg:#fdebc6; --s2-fg:#6e4300;
+  --vac-bg:#d9f0dd; --vac-fg:#1d5a2c;
+  --sick-bg:#ead9f6; --sick-fg:#5a2a85;
+  --hol-bg:#f9dcd8; --hol-fg:#8a2a20;
+  --off-fg:#7a8785;
+  --sans:'Onest',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1514; --surface:#161e1d; --surface2:#1b2524; --line:#2a3634;
+    --fg:#e6eeed; --muted:#9aaaa8; --accent:#5cc4ba; --accent-fg:#06201d;
+    --s1-bg:#1b2a45; --s1-fg:#a9c8ff;
+    --s2-bg:#3d2e0f; --s2-fg:#f3cd85;
+    --vac-bg:#173321; --vac-fg:#9fd8ac;
+    --sick-bg:#2e1f40; --sick-fg:#cfaef0;
+    --hol-bg:#3d1d19; --hol-fg:#f2b0a8;
+    --off-fg:#7f8e8c; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1514; --surface:#161e1d; --surface2:#1b2524; --line:#2a3634;
+  --fg:#e6eeed; --muted:#9aaaa8; --accent:#5cc4ba; --accent-fg:#06201d;
+  --s1-bg:#1b2a45; --s1-fg:#a9c8ff;
+  --s2-bg:#3d2e0f; --s2-fg:#f3cd85;
+  --vac-bg:#173321; --vac-fg:#9fd8ac;
+  --sick-bg:#2e1f40; --sick-fg:#cfaef0;
+  --hol-bg:#3d1d19; --hol-fg:#f2b0a8;
+  --off-fg:#7f8e8c; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--sans); font-size:14px; line-height:1.45;
+  padding-block:20px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+#app{max-width:1280px;margin:0 auto}
+h1,h2,h3{margin:0;font-weight:700;text-wrap:balance}
+h1{font-size:26px;letter-spacing:-.01em}
+h2{font-size:18px}
+h3{font-size:15px}
+.sub{margin:4px 0 0;color:var(--muted)}
+.top{margin-bottom:14px}
+.demo{margin:0 0 14px;padding:9px 12px;border-radius:8px;background:var(--s2-bg);color:var(--s2-fg)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;margin-bottom:16px}
+.tab{font:inherit;font-weight:500;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;padding:9px 14px;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:8px}
+.nav{display:flex;gap:6px}
+.range{min-width:0}
+.jump{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--muted)}
+.btn{font:inherit;font-weight:500;padding:7px 12px;border-radius:7px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.btn:hover{background:var(--surface2)}
+.btn.pri{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.sm{padding:4px 9px;font-size:12.5px}
+.btn.danger{color:var(--hol-fg)}
+input.in,select.in{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg);min-width:0}
+input.in[type="number"]{width:84px}
+.cyc{margin:0 0 12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.gb{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border-radius:5px;background:var(--surface2);border:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--fg)}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.note.warn{background:var(--hol-bg);color:var(--hol-fg);border-color:transparent}
+.note ul{margin:6px 0 0;padding-left:18px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:separate;border-spacing:0;width:100%}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+thead th{background:var(--surface2);font-weight:500;color:var(--muted);font-size:12px}
+.n{position:sticky;left:0;z-index:1;background:var(--surface);min-width:190px;max-width:230px}
+thead .n,tfoot .n{background:var(--surface2);z-index:2}
+.n .nm{margin-right:8px}
+.n .gb{float:right}
+th.d{text-align:center;line-height:1.2;min-width:84px}
+th.d span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+th.d b{display:block;font-size:16px;color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+th.d i{display:block;font-style:normal;font-size:10.5px;white-space:normal}
+th.d.hol{background:var(--hol-bg);color:var(--hol-fg)}
+th.d.hol b{color:var(--hol-fg)}
+th.d.sun span,th.d.sun b{color:var(--hol-fg)}
+tr.sec td{background:var(--surface2);font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+td.c{text-align:center;padding:4px}
+.pill{display:block;border-radius:6px;padding:5px 4px;font-family:var(--mono);font-size:12.5px;font-weight:500;line-height:1.2;white-space:nowrap;text-align:center}
+.pill small{display:block;font-family:var(--sans);font-size:10px;font-weight:500;opacity:.85}
+.pill.s1{background:var(--s1-bg);color:var(--s1-fg)}
+.pill.s2{background:var(--s2-bg);color:var(--s2-fg)}
+.pill.rep{background:var(--s2-bg);color:var(--s2-fg);box-shadow:inset 0 0 0 1.5px var(--s2-fg)}
+.pill.off,.pill.hol,.pill.vac,.pill.sick{font-family:var(--sans);font-weight:500;font-size:12px}
+.pill.off{color:var(--off-fg);font-weight:400}
+.pill.hol{background:var(--hol-bg);color:var(--hol-fg)}
+.pill.vac{background:var(--vac-bg);color:var(--vac-fg)}
+.pill.sick{background:var(--sick-bg);color:var(--sick-fg)}
+.pill.unc{outline:1.5px dashed var(--hol-fg);outline-offset:-2px}
+td.hrs,th.hrs{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.hrs.over{color:var(--hol-fg);font-weight:600}
+tfoot th,tfoot td{background:var(--surface2);font-size:12.5px;border-bottom:0}
+tfoot td{text-align:center;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.mc th.d{min-width:27px;padding:4px 2px}
+.mc th.d b{font-size:13px}
+.mc th.d.sat span{color:var(--muted)}
+.mc td.c{padding:2px 1px}
+.mc .pill{padding:4px 0;font-size:11.5px;min-width:24px}
+.mc .n{min-width:170px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px;color:var(--muted);font-size:12.5px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend .pill{display:inline-block;min-width:34px;padding:3px 6px;font-size:11.5px}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:500;white-space:nowrap;margin:2px 4px 2px 0}
+.chip.s1{background:var(--s1-bg);color:var(--s1-fg)}
+.chip.s2{background:var(--s2-bg);color:var(--s2-fg)}
+.chip.vac{background:var(--vac-bg);color:var(--vac-fg)}
+.chip.sick{background:var(--sick-bg);color:var(--sick-fg)}
+.chip .x{font:inherit;background:none;border:0;color:inherit;cursor:pointer;padding:0 2px;font-size:14px;line-height:1}
+.add{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.add .in[type="text"]{flex:1 1 220px}
+.err{color:var(--hol-fg);font-size:12.5px}
+td.num{width:36px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.nameIn{width:100%;min-width:180px}
+tr.exp td{background:var(--surface2)}
+.absForm{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sec2{margin-top:26px;max-width:900px}
+.sec2 > p{color:var(--muted);margin:4px 0 10px}
+.row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:8px 0}
+.row label{display:flex;align-items:center;gap:8px}
+.mini{width:100%;max-width:560px}
+.mini td,.mini th{padding:5px 8px}
+.ok{color:var(--vac-fg);font-weight:600}
+.no{color:var(--off-fg)}
+@media (prefers-reduced-motion:no-preference){.btn,.tab{transition:background .12s,color .12s}}
+@media (max-width:560px){h1{font-size:22px}.jump{margin-left:0}}
+</style>
+<div id="app"></div>
+<script>
+(function(){
+'use strict';
+var STORE='smenny-grafik-v1';
+var DOW=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+var MG=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+var MS=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+var MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+
+var pad=function(n){return String(n).padStart(2,'0');};
+var parse=function(s){var p=s.split('-').map(Number);return new Date(Date.UTC(p[0],p[1]-1,p[2]));};
+var iso=function(d){return d.toISOString().slice(0,10);};
+var add=function(s,n){var d=parse(s);d.setUTCDate(d.getUTCDate()+n);return iso(d);};
+var dow=function(s){return parse(s).getUTCDay();};
+var diff=function(a,b){return Math.round((parse(b)-parse(a))/864e5);};
+var monday=function(s){var w=dow(s);return add(s,w===0?-6:1-w);};
+var todayISO=function(){var n=new Date();return n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate());};
+var uid=function(){return Math.random().toString(36).slice(2,9);};
+var esc=function(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+var toMin=function(t){var p=t.split(':').map(Number);return p[0]*60+p[1];};
+var fT=function(t){var p=t.split(':');return p[1]==='00'?String(+p[0]):(+p[0])+':'+p[1];};
+var fH=function(n){return String(Math.round(n*10)/10).replace('.',',');};
+var dnum=function(s){return +s.slice(8);};
+
+function defaults(){
+  var A=['Айгерим Нурланова','Данияр Сейтказин','Мадина Ержанова','Ерлан Бекмуханов','Светлана Ковалева','Алексей Морозов','Динара Касымова','Асхат Токтаров','Жанна Оспанова','Виктор Захаров','Гульнара Абдрахманова','Руслан Искаков','Ольга Белова','Нурсултан Жумабеков','Салтанат Мукашева'];
+  var B=['Айдос Калиев','Татьяна Миронова','Бауыржан Смагулов','Алия Темирбекова','Дмитрий Орлов','Камила Рахимова','Тимур Омаров','Елена Фролова','Арман Сатыбалдин','Меруерт Алдабергенова','Игорь Степанов','Асель Нургалиева','Максат Дюсенов','Наталья Власова','Серик Байжанов'];
+  var mk=function(n,g){return {id:uid(),name:n,group:g,absences:[]};};
+  var employees=A.map(function(n){return mk(n,'A');}).concat(B.map(function(n){return mk(n,'B');}));
+  var ab=function(n,type,from,to){employees.filter(function(e){return e.name===n;})[0].absences.push({id:uid(),type:type,from:from,to:to});};
+  ab('Айдос Калиев','sick','2026-11-18','2026-11-20');
+  ab('Татьяна Миронова','sick','2026-11-19','2026-11-21');
+  ab('Динара Касымова','vac','2026-12-07','2026-12-20');
+  ab('Игорь Степанов','vac','2026-11-23','2026-11-29');
+  var h=function(name,md,tr){return {id:uid(),name:name,md:md,date:null,transfer:tr!==false};};
+  return {
+    demo:true, employees:employees,
+    settings:{anchor:'2026-11-16',s1:{start:'09:00',end:'18:00'},s2:{start:'12:00',end:'19:00'},lunch:60,replaceVac:false},
+    holidays:[
+      h('Новый год','01-01'),h('Новый год','01-02'),h('Рождество','01-07',false),
+      h('Международный женский день','03-08'),
+      h('Наурыз мейрамы','03-21'),h('Наурыз мейрамы','03-22'),h('Наурыз мейрамы','03-23'),
+      h('Праздник единства народа Казахстана','05-01'),h('День защитника Отечества','05-07'),h('День Победы','05-09'),
+      h('День столицы','07-06'),h('День Республики','10-25'),h('День Независимости','12-16'),
+      {id:uid(),name:'Курбан айт',md:null,date:'2026-05-27',transfer:false}
+    ]
+  };
+}
+function load(){
+  try{
+    var r=localStorage.getItem(STORE);
+    if(r){var p=JSON.parse(r);if(p&&p.employees&&p.settings&&p.holidays)return p;}
+  }catch(e){}
+  return defaults();
+}
+var S=load();
+function save(){try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}}
+
+var holCache={},weekCache={};
+function dirty(){holCache={};weekCache={};S.demo=false;save();render();}
+
+var root=document.getElementById('app');
+var ui={tab:'week',cursor:monday(todayISO()),month:todayISO().slice(0,7),open:null,confirm:null,err:null,year:+todayISO().slice(0,4)};
+
+/* ---------- праздники ---------- */
+function baseHolidays(y){
+  var out=[];
+  S.holidays.forEach(function(h){
+    var d=null;
+    if(h.md)d=y+'-'+h.md;
+    else if(h.date&&h.date.slice(0,4)===String(y))d=h.date;
+    if(d)out.push({date:d,name:h.name,transfer:h.transfer!==false});
+  });
+  return out.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;});
+}
+function isWeekend(d,type){var w=dow(d);return type===5?(w===0||w===6):w===0;}
+function offMap(y,type){
+  var k=y+'-'+type;
+  if(holCache[k])return holCache[k];
+  var m=new Map(),base=baseHolidays(y);
+  base.forEach(function(h){if(!m.has(h.date))m.set(h.date,{name:h.name,kind:'holiday'});});
+  base.forEach(function(h){
+    if(!h.transfer||!isWeekend(h.date,type))return;
+    var d=add(h.date,1);
+    while(isWeekend(d,type)||m.has(d))d=add(d,1);
+    m.set(d,{name:'Перенос: '+h.name,kind:'transfer'});
+  });
+  holCache[k]=m;return m;
+}
+function holidayOn(d,type){
+  var y=+d.slice(0,4);
+  return offMap(y,type).get(d)||offMap(y-1,type).get(d)||null;
+}
+
+/* ---------- смены ---------- */
+function rl(n){var t=n===1?S.settings.s1:S.settings.s2;return fT(t.start)+'–'+fT(t.end);}
+function shortStart(n){var t=n===1?S.settings.s1:S.settings.s2;return fT(t.start);}
+function shiftHours(n){var t=n===1?S.settings.s1:S.settings.s2;return Math.max(0,(toMin(t.end)-toMin(t.start)-S.settings.lunch)/60);}
+function aOnFirst(mon){
+  var idx=Math.floor(diff(monday(S.settings.anchor),mon)/7);
+  return ((idx%2)+2)%2===0;
+}
+function shiftOf(e,mon){return (e.group==='A')===aOnFirst(mon)?1:2;}
+function absenceOn(e,d){
+  var vac=null;
+  for(var i=0;i<e.absences.length;i++){
+    var a=e.absences[i];
+    if(a.from&&a.to&&a.from<=d&&d<=a.to){if(a.type==='sick')return a;vac=vac||a;}
+  }
+  return vac;
+}
+function weekGrid(mon){
+  if(weekCache[mon])return weekCache[mon];
+  var days=[0,1,2,3,4,5,6].map(function(i){return add(mon,i);});
+  var cells={},shifts={},hours={},counts={};
+  S.employees.forEach(function(e){
+    var sh=shiftOf(e,mon),type=sh===1?5:6;
+    shifts[e.id]=sh;cells[e.id]={};
+    days.forEach(function(d){
+      var w=dow(d),c;
+      if(w===0)c={k:'off',t:'Выходной'};
+      else{
+        var h=holidayOn(d,type);
+        if(h)c={k:'hol',t:h.name};
+        else if(sh===1&&w===6)c={k:'off',t:'Выходной'};
+        else{
+          var a=absenceOn(e,d);
+          if(a)c={k:a.type==='sick'?'sick':'vac',t:a.type==='sick'?'Больничный':'Отпуск',abs:true};
+          else c={k:'s'+sh,t:'Смена '+rl(sh),h:shiftHours(sh)};
+        }
+      }
+      cells[e.id][d]=c;
+    });
+  });
+  var load={},mem={},reps=[],uncovered=[];
+  var first=S.employees.filter(function(e){return shifts[e.id]===1;});
+  days.forEach(function(d){
+    var w=dow(d),used={};
+    var absent=S.employees.filter(function(e){
+      var c=cells[e.id][d];
+      return shifts[e.id]===2&&c.abs&&(c.k==='sick'||S.settings.replaceVac);
+    });
+    if(!absent.length)return;
+    var elig=first.filter(function(e){
+      var c=cells[e.id][d];
+      return w===6?(c.k==='off'&&!absenceOn(e,d)):c.k==='s1';
+    });
+    absent.forEach(function(ab){
+      var free=elig.filter(function(e){return !used[e.id];});
+      var pick=null;
+      if(mem[ab.id])pick=free.filter(function(e){return e.id===mem[ab.id];})[0]||null;
+      if(!pick&&free.length){
+        pick=free.reduce(function(b,e){return (load[e.id]||0)<(load[b.id]||0)?e:b;},free[0]);
+      }
+      if(pick){
+        used[pick.id]=1;load[pick.id]=(load[pick.id]||0)+1;mem[ab.id]=pick.id;
+        cells[pick.id][d]={k:'rep',t:'Замена: '+ab.name,h:shiftHours(2),forId:ab.id};
+        reps.push({d:d,absentId:ab.id,replId:pick.id});
+      }else{
+        uncovered.push({d:d,absentId:ab.id});
+        cells[ab.id][d].unc=true;
+      }
+    });
+  });
+  S.employees.forEach(function(e){
+    var s=0;days.forEach(function(d){s+=cells[e.id][d].h||0;});hours[e.id]=s;
+  });
+  days.forEach(function(d){
+    var n1=0,n2=0,ab=0;
+    S.employees.forEach(function(e){
+      var k=cells[e.id][d].k;
+      if(k==='s1')n1++;else if(k==='s2'||k==='rep')n2++;else if(k==='vac'||k==='sick')ab++;
+    });
+    counts[d]={n1:n1,n2:n2,ab:ab};
+  });
+  var g={days:days,cells:cells,shifts:shifts,hours:hours,counts:counts,reps:reps,uncovered:uncovered};
+  weekCache[mon]=g;return g;
+}
+
+/* ---------- подписи дат ---------- */
+function weekLabel(mon){
+  var e=add(mon,6),a=mon.split('-').map(Number),b=e.split('-').map(Number);
+  if(a[0]===b[0]&&a[1]===b[1])return a[2]+'–'+b[2]+' '+MG[b[1]-1]+' '+b[0];
+  if(a[0]===b[0])return a[2]+' '+MG[a[1]-1]+' – '+b[2]+' '+MG[b[1]-1]+' '+b[0];
+  return a[2]+' '+MG[a[1]-1]+' '+a[0]+' – '+b[2]+' '+MG[b[1]-1]+' '+b[0];
+}
+function rngS(f,t){
+  var a=f.split('-').map(Number),b=t.split('-').map(Number);
+  if(f===t)return a[2]+' '+MS[a[1]-1];
+  if(a[1]===b[1]&&a[0]===b[0])return a[2]+'–'+b[2]+' '+MS[b[1]-1];
+  return a[2]+' '+MS[a[1]-1]+' – '+b[2]+' '+MS[b[1]-1];
+}
+function dayList(ds){return ds.map(function(d){return DOW[dow(d)]+' '+dnum(d);}).join(', ');}
+function monthShift(ym,n){var p=ym.split('-').map(Number);return iso(new Date(Date.UTC(p[0],p[1]-1+n,1))).slice(0,7);}
+function nameOf(id){var e=S.employees.filter(function(x){return x.id===id;})[0];return e?e.name:'—';}
+
+/* ---------- отрисовка ---------- */
+var WLAB={off:'Выходной',hol:'Праздник',vac:'Отпуск',sick:'Больничный'};
+function wcell(c){
+  var cls='pill '+c.k+(c.unc?' unc':''),title=' title="'+esc(c.t)+(c.unc?' · нет замены':'')+'"';
+  if(c.k==='s1'||c.k==='s2'){return '<td class="c"><span class="'+cls+'"'+title+'>'+esc(c.t.replace('Смена ',''))+'</span></td>';}
+  if(c.k==='rep'){return '<td class="c"><span class="'+cls+'"'+title+'>'+esc(rl(2))+'<small>замена</small></span></td>';}
+  return '<td class="c"><span class="'+cls+'"'+title+'>'+WLAB[c.k]+'</span></td>';
+}
+function mcell(c){
+  var l={s1:shortStart(1),s2:shortStart(2),rep:'З',off:'В',hol:'П',vac:'О',sick:'Б'}[c.k];
+  return '<td class="c"><span class="pill '+c.k+(c.unc?' unc':'')+'" title="'+esc(c.t)+(c.unc?' · нет замены':'')+'">'+l+'</span></td>';
+}
+function legend(month){
+  var items=[['s1',month?shortStart(1):rl(1),'1-я смена, пн–пт'],['s2',month?shortStart(2):rl(2),'2-я смена, пн–сб'],['rep',month?'З':rl(2),'замена на больничном'],['off',month?'В':'Выходной','выходной'],['hol',month?'П':'Праздник','праздничный или перенесённый день'],['vac',month?'О':'Отпуск','отпуск'],['sick',month?'Б':'Больн.','больничный']];
+  return '<div class="legend">'+items.map(function(i){return '<span><span class="pill '+i[0]+'">'+i[1]+'</span>'+i[2]+'</span>';}).join('')+'</div>';
+}
+function head(){
+  var n=S.employees.length;
+  return '<header class="top"><h1>Сменный график</h1><p class="sub">'+n+' сотрудников · смены '+rl(1)+' и '+rl(2)+' · воскресенье выходной · 2-я смена работает по субботам</p></header>'+
+    (S.demo?'<p class="demo">Показаны примеры сотрудников. Замените их своими на вкладке «Сотрудники».</p>':'');
+}
+function tabs(){
+  var t=[['week','Неделя'],['month','Месяц'],['staff','Сотрудники'],['settings','Праздники и настройки']];
+  return '<nav class="tabs" role="tablist">'+t.map(function(x){return '<button class="tab" role="tab" aria-selected="'+(ui.tab===x[0])+'" data-act="tab" data-v="'+x[0]+'">'+x[1]+'</button>';}).join('')+'</nav>';
+}
+function emptyMsg(){return '<div class="empty">Сотрудников нет. Добавьте их на вкладке «Сотрудники».</div>';}
+
+function weekView(){
+  var mon=ui.cursor,g=weekGrid(mon),a=aOnFirst(mon);
+  var h='<div class="bar"><div class="nav"><button class="btn" data-act="prev" aria-label="Предыдущая неделя">‹</button><button class="btn" data-act="today">Сегодня</button><button class="btn" data-act="next" aria-label="Следующая неделя">›</button></div>'+
+    '<h2 class="range">'+weekLabel(mon)+'</h2><label class="jump">К дате <input class="in" type="date" id="jump" data-ch="jump" value="'+mon+'"></label></div>';
+  h+='<p class="cyc"><span>Группа <span class="gb">'+(a?'A':'B')+'</span> — '+rl(1)+', пн–пт</span><span>Группа <span class="gb">'+(a?'B':'A')+'</span> — '+rl(2)+', пн–сб</span></p>';
+  if(!S.employees.length)return h+emptyMsg();
+  if(g.uncovered.length){
+    var by={};g.uncovered.forEach(function(u){(by[u.absentId]=by[u.absentId]||[]).push(u.d);});
+    h+='<div class="note warn"><b>Нет замены</b> — некому выйти из первой смены:<ul>'+Object.keys(by).map(function(id){return '<li>'+esc(nameOf(id))+': '+dayList(by[id])+'</li>';}).join('')+'</ul></div>';
+  }
+  var pair={};
+  g.reps.forEach(function(r){var k=r.absentId+'|'+r.replId;(pair[k]=pair[k]||{a:r.absentId,r:r.replId,d:[]}).d.push(r.d);});
+  var pk=Object.keys(pair);
+  if(pk.length){
+    h+='<div class="note"><b>Замены на этой неделе</b><ul>'+pk.map(function(k){var p=pair[k];return '<li>'+esc(nameOf(p.r))+' (из 1-й смены) выходит в '+rl(2)+' вместо '+esc(nameOf(p.a))+': '+dayList(p.d)+'</li>';}).join('')+'</ul></div>';
+  }
+  var body='';
+  [1,2].forEach(function(n){
+    var list=S.employees.filter(function(e){return g.shifts[e.id]===n;});
+    body+='<tr class="sec"><td colspan="9">'+(n===1?'Первая смена':'Вторая смена')+' · '+rl(n)+(n===1?' · пн–пт':' · пн–сб')+' · '+list.length+' чел.</td></tr>';
+    list.forEach(function(e){
+      var hh=g.hours[e.id];
+      body+='<tr><td class="n"><span class="nm">'+esc(e.name)+'</span><span class="gb">'+e.group+'</span></td>'+
+        g.days.map(function(d){return wcell(g.cells[e.id][d]);}).join('')+
+        '<td class="hrs'+(hh>40?' over':'')+'" title="Норма по ТК РК — не более 40 часов в неделю">'+fH(hh)+'</td></tr>';
+    });
+  });
+  var th=g.days.map(function(d){
+    var w=dow(d),hol=holidayOn(d,5)||holidayOn(d,6);
+    return '<th class="d'+(hol?' hol':'')+(w===0?' sun':'')+'"><span>'+DOW[w]+'</span><b>'+dnum(d)+'</b>'+(hol?'<i>'+esc(hol.name)+'</i>':'')+'</th>';
+  }).join('');
+  var foot=function(label,key){return '<tr><th class="n">'+label+'</th>'+g.days.map(function(d){return '<td>'+g.counts[d][key]+'</td>';}).join('')+'<td></td></tr>';};
+  h+='<div class="tw"><table class="week"><thead><tr><th class="n">Сотрудник</th>'+th+'<th class="hrs">Часы</th></tr></thead><tbody>'+body+'</tbody><tfoot>'+
+    foot('Работают в 1-й смене','n1')+foot('Работают во 2-й смене','n2')+foot('Отсутствуют','ab')+'</tfoot></table></div>';
+  return h+legend(false);
+}
+
+function monthView(){
+  var p=ui.month.split('-').map(Number),y=p[0],m=p[1];
+  var dim=new Date(Date.UTC(y,m,0)).getUTCDate();
+  var days=[];for(var i=1;i<=dim;i++)days.push(y+'-'+pad(m)+'-'+pad(i));
+  var h='<div class="bar"><div class="nav"><button class="btn" data-act="prev" aria-label="Предыдущий месяц">‹</button><button class="btn" data-act="today">Сегодня</button><button class="btn" data-act="next" aria-label="Следующий месяц">›</button></div>'+
+    '<h2 class="range">'+MN[m-1]+' '+y+'</h2><label class="jump">Месяц <input class="in" type="month" id="monthPick" data-ch="monthPick" value="'+ui.month+'"></label></div>';
+  if(!S.employees.length)return h+emptyMsg();
+  var th=days.map(function(d){
+    var w=dow(d),hol=holidayOn(d,5)||holidayOn(d,6);
+    return '<th class="d'+(hol?' hol':'')+(w===0?' sun':'')+(w===6?' sat':'')+'" title="'+(hol?esc(hol.name):'')+'"><span>'+DOW[w]+'</span><b>'+dnum(d)+'</b></th>';
+  }).join('');
+  var body=S.employees.map(function(e){
+    var dn=0,hr=0;
+    var cs=days.map(function(d){var c=weekGrid(monday(d)).cells[e.id][d];if(c.h){dn++;hr+=c.h;}return mcell(c);}).join('');
+    return '<tr><td class="n"><span class="nm">'+esc(e.name)+'</span><span class="gb">'+e.group+'</span></td>'+cs+'<td class="hrs">'+dn+'</td><td class="hrs">'+fH(hr)+'</td></tr>';
+  }).join('');
+  var foot='<tr><th class="n">Выходят на работу</th>'+days.map(function(d){var c=weekGrid(monday(d)).counts[d];return '<td>'+(c.n1+c.n2)+'</td>';}).join('')+'<td></td><td></td></tr>';
+  h+='<div class="tw mc"><table><thead><tr><th class="n">Сотрудник</th>'+th+'<th class="hrs">Дней</th><th class="hrs">Часов</th></tr></thead><tbody>'+body+'</tbody><tfoot>'+foot+'</tfoot></table></div>';
+  return h+legend(true);
+}
+
+function shiftChip(n){return '<span class="chip s'+n+'">'+rl(n)+(n===2?' + сб':'')+'</span>';}
+function staffView(){
+  var cur=monday(todayISO()),nxt=add(cur,7);
+  var ga=S.employees.filter(function(e){return e.group==='A';}).length,gb=S.employees.length-ga;
+  var h='<div class="add"><input class="in" type="text" id="newName" placeholder="Фамилия и имя нового сотрудника" aria-label="Имя нового сотрудника">'+
+    '<select class="in" id="newGroup" aria-label="Группа"><option value="A"'+(ga<=gb?' selected':'')+'>Группа A</option><option value="B"'+(ga>gb?' selected':'')+'>Группа B</option></select>'+
+    '<button class="btn pri" data-act="addEmp">Добавить</button>'+(ui.err&&ui.err.k==='new'?'<span class="err">'+ui.err.m+'</span>':'')+'</div>'+
+    '<p class="cyc"><span>Группа <span class="gb">A</span>: '+ga+' чел.</span><span>Группа <span class="gb">B</span>: '+gb+' чел.</span><span>Группы меняются сменами каждую неделю. Чтобы перевести сотрудника в другую смену, смените ему группу.</span></p>';
+  if(!S.employees.length)return h+emptyMsg();
+  var rows=S.employees.map(function(e,i){
+    var chips=e.absences.slice().sort(function(a,b){return a.from<b.from?-1:1;}).map(function(a){
+      return '<span class="chip '+a.type+'">'+(a.type==='sick'?'Больничный':'Отпуск')+' '+rngS(a.from,a.to)+'<button class="x" data-act="delAbs" data-id="'+e.id+'" data-aid="'+a.id+'" aria-label="Удалить период">×</button></span>';
+    }).join('');
+    var r='<tr><td class="num">'+(i+1)+'</td><td><input class="in nameIn" value="'+esc(e.name)+'" data-ch="empName" data-id="'+e.id+'" aria-label="Имя сотрудника"></td>'+
+      '<td><select class="in" data-ch="empGroup" data-id="'+e.id+'" aria-label="Группа"><option value="A"'+(e.group==='A'?' selected':'')+'>A</option><option value="B"'+(e.group==='B'?' selected':'')+'>B</option></select></td>'+
+      '<td>'+shiftChip(shiftOf(e,cur))+'</td><td>'+shiftChip(shiftOf(e,nxt))+'</td>'+
+      '<td>'+chips+'<button class="btn sm" data-act="toggleAbs" data-id="'+e.id+'">'+(ui.open===e.id?'Закрыть':'+ Отпуск / больничный')+'</button></td>'+
+      '<td><button class="btn sm danger" data-act="delEmp" data-id="'+e.id+'">'+(ui.confirm===e.id?'Точно удалить?':'Удалить')+'</button></td></tr>';
+    if(ui.open===e.id){
+      r+='<tr class="exp"><td></td><td colspan="6"><div class="absForm"><select class="in" id="abT-'+e.id+'" aria-label="Тип"><option value="vac">Отпуск</option><option value="sick">Больничный</option></select>'+
+        '<label>с <input class="in" type="date" id="abF-'+e.id+'"></label><label>по <input class="in" type="date" id="abE-'+e.id+'"></label>'+
+        '<button class="btn pri sm" data-act="addAbs" data-id="'+e.id+'">Добавить период</button>'+(ui.err&&ui.err.k===e.id?'<span class="err">'+ui.err.m+'</span>':'')+'</div></td></tr>';
+    }
+    return r;
+  }).join('');
+  return h+'<div class="tw"><table><thead><tr><th></th><th>Сотрудник</th><th>Группа</th><th>Эта неделя</th><th>Следующая</th><th>Отпуска и больничные</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function settingsView(){
+  var st=S.settings,cur=monday(todayISO());
+  var prev=[0,1,2,3].map(function(i){
+    var mon=add(cur,7*i),a=aOnFirst(mon);
+    return '<tr><td>'+weekLabel(mon)+'</td><td>'+(a?'A':'B')+' — '+rl(1)+'</td><td>'+(a?'B':'A')+' — '+rl(2)+' + сб</td></tr>';
+  }).join('');
+  var w1=5*shiftHours(1),w2=6*shiftHours(2);
+  var h='<section class="sec2" style="margin-top:0"><h3>Чередование смен</h3><p>Задайте понедельник недели, когда группа A работает в первую смену. Со следующей недели группы меняются местами, и так по кругу.</p>'+
+    '<div class="row"><label>Понедельник опорной недели <input class="in" type="date" id="anchor" data-ch="anchor" value="'+monday(st.anchor)+'"></label><button class="btn" data-act="swap">Поменять группы местами</button></div>'+
+    '<div class="tw mini"><table><thead><tr><th>Неделя</th><th>Первая смена, пн–пт</th><th>Вторая смена, пн–сб</th></tr></thead><tbody>'+prev+'</tbody></table></div></section>';
+  h+='<section class="sec2"><h3>Время смен</h3><p>Часы считаются как длина смены минус обед. По ТК РК рабочая неделя не должна превышать 40 часов.</p>'+
+    '<div class="row"><label>1-я смена <input class="in" type="time" data-ch="time" data-k="s1.start" value="'+st.s1.start+'"> – <input class="in" type="time" data-ch="time" data-k="s1.end" value="'+st.s1.end+'"></label>'+
+    '<label>2-я смена <input class="in" type="time" data-ch="time" data-k="s2.start" value="'+st.s2.start+'"> – <input class="in" type="time" data-ch="time" data-k="s2.end" value="'+st.s2.end+'"></label>'+
+    '<label>Обед, мин <input class="in" type="number" min="0" max="180" step="5" data-ch="lunch" value="'+st.lunch+'"></label></div>'+
+    '<p>Неделя 1-й смены: 5 × '+fH(shiftHours(1))+' = <b class="'+(w1>40?'no':'ok')+'">'+fH(w1)+' ч</b>. Неделя 2-й смены: 6 × '+fH(shiftHours(2))+' = <b class="'+(w2>40?'no':'ok')+'">'+fH(w2)+' ч</b>.'+((w1>40||w2>40)?' Это больше 40 часов.':'')+'</p>'+
+    '<div class="row"><label><input type="checkbox" data-ch="repVac"'+(st.replaceVac?' checked':'')+'> Замещать сотрудников 2-й смены и во время отпуска (по умолчанию только на больничном)</label></div></section>';
+  h+='<section class="sec2"><h3>Праздничные дни</h3><p>Если праздник выпадает на выходной, следующий рабочий день тоже нерабочий. Для пятидневки выходные — суббота и воскресенье, для 2-й смены (пн–сб) только воскресенье. Рождество и Курбан айт не переносятся.</p>'+
+    '<div class="add"><input class="in" type="text" id="hName" placeholder="Название" aria-label="Название праздника"><input class="in" type="date" id="hDate" aria-label="Дата">'+
+    '<label><input type="checkbox" id="hRep" checked> каждый год</label><label><input type="checkbox" id="hTr" checked> переносится</label><button class="btn pri" data-act="addHol">Добавить</button>'+(ui.err&&ui.err.k==='hol'?'<span class="err">'+ui.err.m+'</span>':'')+'</div>';
+  var hl=S.holidays.slice().sort(function(a,b){var ka=(a.md||a.date.slice(5)),kb=(b.md||b.date.slice(5));return ka<kb?-1:ka>kb?1:0;}).map(function(x){
+    var dt=x.md?(dnum('2000-'+x.md)+' '+MS[+x.md.slice(0,2)-1]):(dnum(x.date)+' '+MS[+x.date.slice(5,7)-1]+' '+x.date.slice(0,4));
+    return '<tr><td>'+esc(x.name)+'</td><td>'+dt+'</td><td><input type="checkbox" data-ch="holTr" data-id="'+x.id+'"'+(x.transfer!==false?' checked':'')+' aria-label="Переносится"></td><td>'+(x.md?'каждый год':'один раз')+'</td><td><button class="btn sm danger" data-act="delHol" data-id="'+x.id+'">Удалить</button></td></tr>';
+  }).join('');
+  h+='<div class="tw"><table><thead><tr><th>Праздник</th><th>Дата</th><th>Переносится</th><th>Повтор</th><th></th></tr></thead><tbody>'+hl+'</tbody></table></div>';
+  var y=ui.year,rowsM=new Map();
+  [5,6].forEach(function(t){[y,y-1].forEach(function(yy){offMap(yy,t).forEach(function(v,d){
+    if(d.slice(0,4)!==String(y))return;
+    var r=rowsM.get(d)||{n:{}};r.n[t]=v.name;rowsM.set(d,r);
+  });});});
+  var ds=Array.from(rowsM.keys()).sort();
+  var yr=ds.map(function(d){
+    var r=rowsM.get(d),nm=r.n[5]||r.n[6];
+    return '<tr><td>'+dnum(d)+' '+MS[+d.slice(5,7)-1]+', '+DOW[dow(d)].toLowerCase()+'</td><td>'+esc(nm)+'</td><td class="'+(r.n[5]?'ok':'no')+'">'+(r.n[5]?'да':'—')+'</td><td class="'+(r.n[6]?'ok':'no')+'">'+(r.n[6]?'да':'—')+'</td></tr>';
+  }).join('');
+  h+='<div class="row" style="margin-top:16px"><h3>Нерабочие дни '+y+' года</h3><button class="btn sm" data-act="yearPrev" aria-label="Предыдущий год">‹</button><button class="btn sm" data-act="yearNext" aria-label="Следующий год">›</button></div>'+
+    '<div class="tw mini" style="max-width:720px"><table><thead><tr><th>Дата</th><th>Причина</th><th>1-я смена (пн–пт)</th><th>2-я смена (пн–сб)</th></tr></thead><tbody>'+yr+'</tbody></table></div></section>';
+  h+='<section class="sec2"><h3>Данные</h3><p>Изменения сохраняются в этом браузере.</p><div class="row"><button class="btn danger" data-act="resetDemo">'+(ui.confirm==='reset'?'Точно вернуть пример?':'Вернуть пример сотрудников')+'</button><button class="btn danger" data-act="clearAll">'+(ui.confirm==='clear'?'Точно удалить всех?':'Удалить всех сотрудников')+'</button></div></section>';
+  return h;
+}
+
+function render(){
+  var v=ui.tab==='week'?weekView():ui.tab==='month'?monthView():ui.tab==='staff'?staffView():settingsView();
+  root.innerHTML=head()+tabs()+'<div id="view">'+v+'</div>';
+}
+
+/* ---------- события ---------- */
+root.addEventListener('click',function(ev){
+  var b=ev.target.closest('[data-act]');
+  if(!b){if(ui.confirm){ui.confirm=null;render();}return;}
+  var a=b.dataset.act,id=b.dataset.id;
+  if(a!=='delEmp'&&a!=='resetDemo'&&a!=='clearAll')ui.confirm=null;
+  var val=function(x){var el=document.getElementById(x);return el?el.value:'';};
+  switch(a){
+    case 'tab':ui.tab=b.dataset.v;ui.err=null;render();break;
+    case 'prev':if(ui.tab==='week')ui.cursor=add(ui.cursor,-7);else ui.month=monthShift(ui.month,-1);render();break;
+    case 'next':if(ui.tab==='week')ui.cursor=add(ui.cursor,7);else ui.month=monthShift(ui.month,1);render();break;
+    case 'today':ui.cursor=monday(todayISO());ui.month=todayISO().slice(0,7);render();break;
+    case 'swap':S.settings.anchor=add(monday(S.settings.anchor),7);dirty();break;
+    case 'addEmp':{
+      var n=val('newName').trim();
+      if(!n){ui.err={k:'new',m:'Введите имя сотрудника'};render();return;}
+      S.employees.push({id:uid(),name:n,group:val('newGroup')==='B'?'B':'A',absences:[]});
+      ui.err=null;dirty();var f=document.getElementById('newName');if(f)f.focus();break;
+    }
+    case 'delEmp':
+      if(ui.confirm===id){S.employees=S.employees.filter(function(e){return e.id!==id;});ui.confirm=null;ui.open=null;dirty();}
+      else{ui.confirm=id;render();}
+      break;
+    case 'toggleAbs':ui.open=ui.open===id?null:id;ui.err=null;render();break;
+    case 'addAbs':{
+      var from=val('abF-'+id),to=val('abE-'+id),type=val('abT-'+id)==='sick'?'sick':'vac';
+      if(!from||!to){ui.err={k:id,m:'Укажите даты начала и конца'};render();return;}
+      if(to<from){ui.err={k:id,m:'Конец периода раньше начала'};render();return;}
+      S.employees.forEach(function(e){if(e.id===id)e.absences.push({id:uid(),type:type,from:from,to:to});});
+      ui.err=null;ui.open=null;dirty();break;
+    }
+    case 'delAbs':S.employees.forEach(function(e){if(e.id===id)e.absences=e.absences.filter(function(x){return x.id!==b.dataset.aid;});});dirty();break;
+    case 'addHol':{
+      var hn=val('hName').trim(),hd=val('hDate');
+      if(!hn||!hd){ui.err={k:'hol',m:'Укажите название и дату'};render();return;}
+      var rep=document.getElementById('hRep').checked,tr=document.getElementById('hTr').checked;
+      S.holidays.push({id:uid(),name:hn,md:rep?hd.slice(5):null,date:rep?null:hd,transfer:tr});
+      ui.err=null;dirty();break;
+    }
+    case 'delHol':S.holidays=S.holidays.filter(function(x){return x.id!==id;});dirty();break;
+    case 'yearPrev':ui.year--;render();break;
+    case 'yearNext':ui.year++;render();break;
+    case 'resetDemo':
+      if(ui.confirm==='reset'){S=defaults();holCache={};weekCache={};ui.confirm=null;save();render();}
+      else{ui.confirm='reset';render();}
+      break;
+    case 'clearAll':
+      if(ui.confirm==='clear'){S.employees=[];ui.confirm=null;ui.open=null;dirty();}
+      else{ui.confirm='clear';render();}
+      break;
+  }
+});
+root.addEventListener('change',function(ev){
+  var t=ev.target,c=t.dataset?t.dataset.ch:null;
+  if(!c)return;
+  var id=t.dataset.id,emp=S.employees.filter(function(e){return e.id===id;})[0];
+  switch(c){
+    case 'jump':if(t.value){ui.cursor=monday(t.value);render();}break;
+    case 'monthPick':if(t.value){ui.month=t.value;render();}break;
+    case 'empName':{var v=t.value.trim();if(!v||!emp){render();return;}emp.name=v;dirty();break;}
+    case 'empGroup':if(emp){emp.group=t.value==='B'?'B':'A';dirty();}break;
+    case 'anchor':if(t.value){S.settings.anchor=monday(t.value);dirty();}break;
+    case 'time':{
+      var k=t.dataset.k.split('.'),old=S.settings[k[0]][k[1]];
+      if(!t.value){render();return;}
+      S.settings[k[0]][k[1]]=t.value;
+      if(toMin(S.settings[k[0]].end)<=toMin(S.settings[k[0]].start)){S.settings[k[0]][k[1]]=old;render();return;}
+      dirty();break;
+    }
+    case 'lunch':S.settings.lunch=Math.max(0,Math.min(180,+t.value||0));dirty();break;
+    case 'repVac':S.settings.replaceVac=t.checked;dirty();break;
+    case 'holTr':S.holidays.forEach(function(h){if(h.id===id)h.transfer=t.checked;});dirty();break;
+  }
+});
+
+render();
+})();
+</script>
+</html>
